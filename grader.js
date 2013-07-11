@@ -22,9 +22,12 @@ References:
 */
 
 var fs = require('fs');
+var util = require('util');
+var rest = require('restler');
 var program = require('commander');
 var cheerio = require('cheerio');
-var HTMLFILE_DEFAULT = "index.html";
+var HTMLFILE_DEFAULT = 'index.html';
+var URL_DEFAULT = "http://gentle-harbor-4001.herokuapp.com";
 var CHECKSFILE_DEFAULT = "checks.json";
 
 var assertFileExists = function(infile) {
@@ -55,6 +58,26 @@ var checkHtmlFile = function(htmlfile, checksfile) {
     return out;
 };
 
+var assertUrlExists = function(infile) {
+  var instr = util.format(infile); 
+  rest.get(instr).on('complete', processUrl);
+  return ('test.html');
+};
+
+var processUrl = function(result, response) {
+  if (result instanceof Error) {
+    console.error("Error: " + util.format(response.message));
+    this.retry(5000); // try again after 5 sec
+  } else {
+    fs.writeFileSync("./test.html", result); 
+    if(!fs.existsSync("test.html")) {
+        console.log("does not exist. Exiting.");
+        process.exit(1); // http://nodejs.org/api/process.html#process_process_exit_code              
+    }
+    //return "url.html";
+  }
+};
+
 var clone = function(fn) {
     // Workaround for commander.js issue.
     // http://stackoverflow.com/a/6772648
@@ -65,8 +88,12 @@ if(require.main == module) {
     program
         .option('-c, --checks <check_file>', 'Path to checks.json', clone(assertFileExists), CHECKSFILE_DEFAULT)
         .option('-f, --file <html_file>', 'Path to index.html', clone(assertFileExists), HTMLFILE_DEFAULT)
+        .option('-u, --url <url>', 'Url', clone(assertUrlExists))
         .parse(process.argv);
-    var checkJson = checkHtmlFile(program.file, program.checks);
+    if (program.url != null)
+       var checkJson = checkHtmlFile(program.url, program.checks);
+    else if (program.file != null)
+       var checkJson = checkHtmlFile(program.file, program.checks);
     var outJson = JSON.stringify(checkJson, null, 4);
     console.log(outJson);
 } else {
